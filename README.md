@@ -6,8 +6,8 @@
   <h2>為 FastAPI 打造的現代化網頁渲染套件</h2>
 
   <div align="center">
-    <a href="https://github.com/user/fastapi-webpage/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/user/fastapi-webpage?style=for-the-badge&color=009688"/></a>
-    <a href="https://github.com/user/fastapi-webpage/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/LICENSE-ECL%202.0-orange?style=for-the-badge"/></a>
+    <a href="https://github.com/cxphoenix/fastapi-webpage/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/cxphoenix/fastapi-webpage?style=for-the-badge&color=009688"/></a>
+    <a href="https://github.com/cxphoenix/fastapi-webpage/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/LICENSE-ECL%202.0-orange?style=for-the-badge"/></a>
     <a href="https://www.python.org/"><img alt="Python" src="https://img.shields.io/badge/python-3.13+-blue?style=for-the-badge&logo=python&logoColor=white"/></a>
     <img alt="Code Style" src="https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge"/>
   </div>
