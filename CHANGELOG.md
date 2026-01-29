@@ -5,7 +5,7 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 並遵守 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
-## [Unreleased]
+## [v0.1.0] - 2026-01-30
 
 ### 新增 (Added) 🚀
 -   **核心**: `fastapi-webpage` 初始發布。
