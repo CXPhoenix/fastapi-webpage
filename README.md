@@ -90,13 +90,13 @@ async def home(request: Request):
 ### 使用 uv (推薦 ⚡)
 
 ```bash
-uv add git+https://github.com/user/fastapi-webpage.git
+uv add git+https://github.com/cxphoenix/fastapi-webpage.git
 ```
 
 ### 使用 pip
 
 ```bash
-pip install git+https://github.com/user/fastapi-webpage.git
+pip install git+https://github.com/cxphoenix/fastapi-webpage.git
 ```
 
 ## 進階功能 🛠️
