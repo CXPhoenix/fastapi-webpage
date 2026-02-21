@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-webpage"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "為 FastAPI 打造的現代化網頁渲染套件 (Modern web rendering package for FastAPI using Jinja2)"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { file = "LICENSE" }

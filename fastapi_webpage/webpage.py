@@ -1,4 +1,5 @@
 import inspect
+from urllib.parse import urlparse, urlunparse
 import time
 from functools import wraps
 from os import PathLike
@@ -6,7 +7,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from fastapi import HTTPException, Request, status
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from jinja2 import pass_context
 
@@ -154,6 +155,82 @@ class WebPage:
                             detail={
                                 "error_msgs": [
                                     "套用到 @Webpage().page() 的函式，必須回傳 dict。",
+                                    f"function name: {func.__name__}",
+                                    f"info: {func.__code__}",
+                                ]
+                            },
+                        )
+
+            return wrap
+
+        return decorator
+
+    def redirect(
+        self, status_code: int = status.HTTP_307_TEMPORARY_REDIRECT
+    ) -> Awaitable:
+        """
+        裝飾器 (Decorator)，用於將 FastAPI 的 API 函式回傳值作為 Redirect 目標。
+
+        被裝飾的函式可回傳以下類型：
+
+        - ``str``: 目標 URL，使用 Decorator 指定的 status_code。
+        - ``tuple[str, int]``: ``(目標 URL, HTTP 狀態碼)``，覆寫預設 status_code。
+        - ``RedirectResponse``: 向原生相容，自動調整其 URL scheme。
+        - 其他 ``Response`` 子類別: 原樣透傳，不做任何處理。
+
+        當 Request Header 包含 ``x-forwarded-proto`` 時，自動將 URL scheme 從
+        http 替換為 https、ws 替換為 wss，以支援 Reverse Proxy 環境。
+
+        Args:
+            status_code (int, optional): HTTP 狀態碼。預設為 307 Temporary Redirect。
+
+        Returns:
+            Awaitable: 裝飾後的非同步函式。
+        """
+        def decorator(func: Callable | Awaitable):
+            @wraps(func)
+            async def wrap(**kargs):
+                request: Request = kargs.get("request")
+                if request is None:
+                    raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+                def _adjust_scheme(url: str) -> str:
+                    """依據 x-forwarded-proto 調整 URL scheme。"""
+                    if proto := request.headers.get("x-forwarded-proto"):
+                        scheme_map = {"http": "https", "ws": "wss"}
+                        parsed = urlparse(url)
+                        new_scheme = scheme_map.get(parsed.scheme, proto)
+                        return urlunparse(parsed._replace(scheme=new_scheme))
+                    return url
+
+                result = func(**kargs)
+                if inspect.isawaitable(result):
+                    result = await result
+                match result:
+                    case RedirectResponse():
+                        result.headers["location"] = _adjust_scheme(
+                            result.headers.get("location", "")
+                        )
+                        return result
+                    case Response():
+                        return result
+                    case str():
+                        url = _adjust_scheme(result)
+                        return RedirectResponse(
+                            url=url, status_code=status_code
+                        )
+                    case (str() as url, int() as code):
+                        url = _adjust_scheme(url)
+                        return RedirectResponse(
+                            url=url, status_code=code
+                        )
+                    case _:
+                        raise HTTPException(
+                            status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail={
+                                "error_msgs": [
+                                    "套用到 @Webpage().redirect() 的函式，"
+                                    "必須回傳 str、tuple[str, int]、Response 或 RedirectResponse。",
                                     f"function name: {func.__name__}",
                                     f"info: {func.__code__}",
                                 ]

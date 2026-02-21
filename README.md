@@ -25,6 +25,7 @@
 
 ## *最新消息* 🔥
 
+- **[2026/02]** 🎉 **發布 v0.2.0**：新增 `@webpage.redirect` 裝飾器，支援多種回傳型態的智慧重新導向！
 - **[2026/01]** 🎉 **FastAPI WebPage 初始發布**！帶來 Decorator 風格的頁面渲染體驗。
 - **[2026/01]** 🚀 **支援 Reverse Proxy**：內建 `urlx_for` 自動處理 `X-Forwarded-Proto`，部署更輕鬆。
 - **[2026/01]** ✨ **混合錯誤處理**：智慧判斷 API 與瀏覽器請求，回傳最適當的錯誤格式。
@@ -123,7 +124,33 @@ async def add_user_middleware(request: Request, call_next):
 <a href="{{ url_for('home') }}">回首頁</a>
 ```
 
-### 3. 智慧錯誤處理
+### 3. 智慧重新導向 (`@webpage.redirect`)
+
+處理 Redirect 時，常常會遇到 Reverse Proxy 導致 HTTPS 變成 HTTP 的問題。`@webpage.redirect()` 裝飾器不僅能像 `page` 一樣自動修正 Scheme，更相容各種回傳類型：
+
+```python
+from fastapi.responses import RedirectResponse
+
+@app.post("/login")
+@webpage.redirect(status_code=303)  # 預設為 307
+async def login(request: Request):
+    # 支援回傳 str 當作 URL
+    return "/dashboard"
+
+@app.post("/logout")
+@webpage.redirect()
+async def logout(request: Request):
+    # 也支援 tuple 指定特定 status code
+    return "/login", 302
+
+@app.get("/legacy")
+@webpage.redirect()
+async def legacy(request: Request):
+    # 向原生相容：直接回傳 RedirectResponse 也會自動修正 Location Header 的 Scheme
+    return RedirectResponse(url="/old-page")
+```
+
+### 4. 智慧錯誤處理
 
 `register_error_handlers` 會接管 FastAPI 的例外處理：
 
