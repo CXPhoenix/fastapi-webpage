@@ -5,6 +5,11 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 並遵守 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.2.1] - 2026-02-21
+
+### 修復 (Fixed) 🐛
+-   **安全性/功能**: 修復 `page` 與 `redirect` 裝飾器中 `_adjust_scheme` 針對相對路徑 (Relative URLs) 會錯誤強制加上 `x-forwarded-proto` scheme 的問題。此修正確保相對路徑可以正常解析，同時避免非預期的路徑錯誤。
+
 ## [v0.2.0] - 2026-02-21
 
 ### 新增 (Added) ✨

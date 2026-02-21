@@ -137,7 +137,27 @@ class WebPage:
                 context: dict[str, Any] = func(**kargs)
                 if inspect.isawaitable(context):
                     context = await context
+                
+                def _adjust_scheme(url: str) -> str:
+                    """依據 x-forwarded-proto 調整 URL scheme。"""
+                    parsed = urlparse(str(url))
+                    if not parsed.netloc:
+                        return str(url)
+                    if proto := request.headers.get("x-forwarded-proto"):
+                        scheme_map = {"http": "https", "ws": "wss"}
+                        allowed_schemes = {"http", "https", "ws", "wss"}
+                        new_scheme = scheme_map.get(parsed.scheme, proto)
+                        if new_scheme not in allowed_schemes:
+                            new_scheme = "https"
+                        return urlunparse(parsed._replace(scheme=new_scheme))
+                    return str(url)
+
                 match context:
+                    case RedirectResponse():
+                        context.headers["location"] = _adjust_scheme(
+                            context.headers.get("location", "")
+                        )
+                        return context
                     case Response():
                         return context
                     case dict():
@@ -195,10 +215,12 @@ class WebPage:
 
                 def _adjust_scheme(url: str) -> str:
                     """依據 x-forwarded-proto 調整 URL scheme。"""
+                    parsed = urlparse(str(url))
+                    if not parsed.netloc:
+                        return str(url)
                     if proto := request.headers.get("x-forwarded-proto"):
                         scheme_map = {"http": "https", "ws": "wss"}
                         allowed_schemes = {"http", "https", "ws", "wss"}
-                        parsed = urlparse(str(url))
                         new_scheme = scheme_map.get(parsed.scheme, proto)
                         if new_scheme not in allowed_schemes:
                             new_scheme = "https"
