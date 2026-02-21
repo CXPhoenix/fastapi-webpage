@@ -9,10 +9,10 @@
 
 ### 新增 (Added) ✨
 -   **功能**: 新增 `redirect` 裝飾器，提供簡潔的 RedirectResponse 寫法，不僅支援自動轉換 HTTPS/WSS Scheme，更相容多種回傳型態：
-    -   `str`: 作為目標 URL 並自動套用狀態碼
+    -   `str` | `starlette.URL` | `starlette.URLPath`: 作為目標 URL 並自動套用狀態碼
     -   `tuple[str, int]`: 可自訂覆寫預設狀態碼
     -   `RedirectResponse`: 向原生相容，自動修正 `location` Header 內的 Scheme
-    -   其他 `Response`: 原樣透傳
+    -   其他 `Response`: 直接回傳
 
 ## [v0.1.0] - 2026-01-30
 

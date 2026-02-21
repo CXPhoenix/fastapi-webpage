@@ -9,6 +9,7 @@ from typing import Any, Awaitable, Callable
 from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from starlette.datastructures import URL, URLPath
 from jinja2 import pass_context
 
 
@@ -35,6 +36,9 @@ def urlx_for(
     request: Request = context["request"]
     http_url = request.url_for(name, **path_params)
     if scheme := request.headers.get("x-forwarded-proto"):
+        allowed_schemes = {"http", "https", "ws", "wss"}
+        if scheme not in allowed_schemes:
+            scheme = "https"
         return http_url.replace(scheme=scheme)
     return http_url
 
@@ -152,13 +156,8 @@ class WebPage:
                     case _:
                         raise HTTPException(
                             status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail={
-                                "error_msgs": [
-                                    "套用到 @Webpage().page() 的函式，必須回傳 dict。",
-                                    f"function name: {func.__name__}",
-                                    f"info: {func.__code__}",
-                                ]
-                            },
+                            detail="Internal Server Error: "
+                            "invalid return type from page handler.",
                         )
 
             return wrap
@@ -173,7 +172,7 @@ class WebPage:
 
         被裝飾的函式可回傳以下類型：
 
-        - ``str``: 目標 URL，使用 Decorator 指定的 status_code。
+        - ``str | URL``: 目標 URL，使用 Decorator 指定的 status_code。
         - ``tuple[str, int]``: ``(目標 URL, HTTP 狀態碼)``，覆寫預設 status_code。
         - ``RedirectResponse``: 向原生相容，自動調整其 URL scheme。
         - 其他 ``Response`` 子類別: 原樣透傳，不做任何處理。
@@ -198,14 +197,26 @@ class WebPage:
                     """依據 x-forwarded-proto 調整 URL scheme。"""
                     if proto := request.headers.get("x-forwarded-proto"):
                         scheme_map = {"http": "https", "ws": "wss"}
-                        parsed = urlparse(url)
+                        allowed_schemes = {"http", "https", "ws", "wss"}
+                        parsed = urlparse(str(url))
                         new_scheme = scheme_map.get(parsed.scheme, proto)
+                        if new_scheme not in allowed_schemes:
+                            new_scheme = "https"
                         return urlunparse(parsed._replace(scheme=new_scheme))
-                    return url
+                    return str(url)
 
                 result = func(**kargs)
                 if inspect.isawaitable(result):
                     result = await result
+
+                # 正規化：將 URL / URLPath 等 URL-like 物件統一轉為 str，
+                # 同時相容 tuple 內的 URL-like 物件（如 (request.url_for(...), 303)）。
+                match result:
+                    case (URL() | URLPath() as url, int() as code):
+                        result = (str(url), code)
+                    case URL() | URLPath():
+                        result = str(result)
+
                 match result:
                     case RedirectResponse():
                         result.headers["location"] = _adjust_scheme(
@@ -227,14 +238,8 @@ class WebPage:
                     case _:
                         raise HTTPException(
                             status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail={
-                                "error_msgs": [
-                                    "套用到 @Webpage().redirect() 的函式，"
-                                    "必須回傳 str、tuple[str, int]、Response 或 RedirectResponse。",
-                                    f"function name: {func.__name__}",
-                                    f"info: {func.__code__}",
-                                ]
-                            },
+                            detail="Internal Server Error: "
+                            "invalid return type from redirect handler.",
                         )
 
             return wrap
