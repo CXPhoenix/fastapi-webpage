@@ -5,6 +5,16 @@
 格式基於 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 並遵守 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.3.1] - 2026-06-22
+
+> 強化 Redirect 目標的 scheme 安全檢查，並修正 `WebPage.__call__` 的可變預設參數；持續同時相容 Starlette 0.50.x 與 1.x。
+
+### 安全性 (Security) 🔒
+-   **Redirect Scheme 白名單**: 強化 `@webpage.redirect` 與 `@webpage.page` 的 Redirect 目標檢查。對「無 netloc 但帶有非白名單 scheme」的 URL（例如 `javascript:`、`data:`、`vbscript:`、`mailto:`、`tel:`）一律拒絕並回傳 500，避免 Open Redirect / XSS。相對 URL（如 `/path?next=/x`）、合法的 `http`／`https`／`ws`／`wss` 絕對 URL、以及含 netloc 的 URL 行為與舊版完全一致；白名單為 `http`／`https`／`ws`／`wss`。
+
+### 修復 (Fixed) 🐛
+-   **可變預設參數**: 修正 `WebPage.__call__` 的 `context={}` 可變預設參數（Python footgun）。改為 `context: dict | None = None` 並於內部複製，避免跨呼叫共用同一個 dict；同時不再汙染呼叫者傳入的 dict（先前會把 `request`／`webpage`／`pre_context` 寫回呼叫者的 dict）。
+
 ## [v0.3.0] - 2026-06-22
 
 > 全面相容 Starlette 1.x，同時維持與 Starlette 0.50.x 的向下相容，並持續支援透過 GitHub 安裝。

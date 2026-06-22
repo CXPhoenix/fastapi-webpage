@@ -43,6 +43,44 @@ def urlx_for(
     return http_url
 
 
+_REDIRECT_ALLOWED_SCHEMES = {"http", "https", "ws", "wss"}
+
+
+def _adjust_scheme(url: Any, request: Request) -> str:
+    """依據 x-forwarded-proto 調整 URL scheme，並阻擋危險 scheme。
+
+    - 相對 URL（無 scheme、無 netloc）：原樣保留，以相容 Reverse Proxy 下的相對路徑。
+    - 無 netloc 但帶有非白名單 scheme（例如 ``javascript:``、``data:``）：視為不安全的
+      Redirect 目標，拋出 500，避免 Open Redirect / XSS。
+    - 具 netloc 且 Header 含 ``x-forwarded-proto``：將 http→https、ws→wss
+      （或採用 proxy 指定且在白名單內的 scheme）。
+
+    Args:
+        url (Any): 待處理的 URL（str 或 URL-like 物件）。
+        request (Request): 目前的 FastAPI Request，用於讀取 ``x-forwarded-proto``。
+
+    Returns:
+        str: 處理後的 URL 字串。
+
+    Raises:
+        HTTPException: 當 URL 帶有非白名單的危險 scheme 時，回傳 500。
+    """
+    parsed = urlparse(str(url))
+    if not parsed.netloc:
+        if parsed.scheme and parsed.scheme.lower() not in _REDIRECT_ALLOWED_SCHEMES:
+            raise HTTPException(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal Server Error: unsafe redirect scheme.",
+            )
+        return str(url)
+    if proto := request.headers.get("x-forwarded-proto"):
+        scheme_map = {"http": "https", "ws": "wss"}
+        new_scheme = scheme_map.get(parsed.scheme, proto)
+        if new_scheme not in _REDIRECT_ALLOWED_SCHEMES:
+            new_scheme = "https"
+        return urlunparse(parsed._replace(scheme=new_scheme))
+    return str(url)
+
 
 class WebPage:
     """
@@ -142,24 +180,10 @@ class WebPage:
                 if inspect.isawaitable(context):
                     context = await context
                 
-                def _adjust_scheme(url: str) -> str:
-                    """依據 x-forwarded-proto 調整 URL scheme。"""
-                    parsed = urlparse(str(url))
-                    if not parsed.netloc:
-                        return str(url)
-                    if proto := request.headers.get("x-forwarded-proto"):
-                        scheme_map = {"http": "https", "ws": "wss"}
-                        allowed_schemes = {"http", "https", "ws", "wss"}
-                        new_scheme = scheme_map.get(parsed.scheme, proto)
-                        if new_scheme not in allowed_schemes:
-                            new_scheme = "https"
-                        return urlunparse(parsed._replace(scheme=new_scheme))
-                    return str(url)
-
                 match context:
                     case RedirectResponse():
                         context.headers["location"] = _adjust_scheme(
-                            context.headers.get("location", "")
+                            context.headers.get("location", ""), request
                         )
                         return context
                     case Response():
@@ -220,20 +244,6 @@ class WebPage:
                 if request is None:
                     raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-                def _adjust_scheme(url: str) -> str:
-                    """依據 x-forwarded-proto 調整 URL scheme。"""
-                    parsed = urlparse(str(url))
-                    if not parsed.netloc:
-                        return str(url)
-                    if proto := request.headers.get("x-forwarded-proto"):
-                        scheme_map = {"http": "https", "ws": "wss"}
-                        allowed_schemes = {"http", "https", "ws", "wss"}
-                        new_scheme = scheme_map.get(parsed.scheme, proto)
-                        if new_scheme not in allowed_schemes:
-                            new_scheme = "https"
-                        return urlunparse(parsed._replace(scheme=new_scheme))
-                    return str(url)
-
                 result = func(**kargs)
                 if inspect.isawaitable(result):
                     result = await result
@@ -249,18 +259,18 @@ class WebPage:
                 match result:
                     case RedirectResponse():
                         result.headers["location"] = _adjust_scheme(
-                            result.headers.get("location", "")
+                            result.headers.get("location", ""), request
                         )
                         return result
                     case Response():
                         return result
                     case str():
-                        url = _adjust_scheme(result)
+                        url = _adjust_scheme(result, request)
                         return RedirectResponse(
                             url=url, status_code=status_code
                         )
                     case (str() as url, int() as code):
-                        url = _adjust_scheme(url)
+                        url = _adjust_scheme(url, request)
                         return RedirectResponse(
                             url=url, status_code=code
                         )
@@ -279,7 +289,7 @@ class WebPage:
         self,
         template_file: PathLike | str,
         request: Request,
-        context: dict[str, Any] = {},
+        context: dict[str, Any] | None = None,
         **kargs,
     ):
         """
@@ -288,7 +298,7 @@ class WebPage:
         Args:
             template_file (PathLike | str): Template 檔案名稱。
             request (Request): FastAPI 的 Request 物件。
-            context (dict[str, Any], optional): 額外的 Context 變數。預設為空字典。
+            context (dict[str, Any] | None, optional): 額外的 Context 變數。預設為 None（等同空字典）。
             **kargs: 其他參數。
                 - status_code (int): HTTP 狀態碼。
                 - headers (dict): HTTP Headers。
@@ -296,6 +306,7 @@ class WebPage:
         Returns:
             Response: FastAPI TemplateResponse 物件。
         """
+        context = dict(context or {})
         context.update({"request": request})
         context.update(self._pre_context)
         context.update({"webpage": self._webpage_context})
