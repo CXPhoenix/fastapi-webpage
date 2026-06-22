@@ -4,14 +4,30 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastapi-webpage"
-version = "0.2.1"
+version = "0.3.0"
 description = "為 FastAPI 打造的現代化網頁渲染套件 (Modern web rendering package for FastAPI using Jinja2)"
 readme = "README.md"
 requires-python = ">=3.13"
 license = { file = "LICENSE" }
 dependencies = [
     "fastapi>=0.128.0",
+    "starlette>=0.40.0",
     "jinja2>=3.1.6",
     "python-multipart>=0.0.22",
     "ujson>=5.11.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# 精準守衛：若任何 render 退回 Starlette 已棄用（並於 1.x 移除）的
+# 舊式 TemplateResponse(name, context) 呼叫，將其 DeprecationWarning 升級為錯誤。
+filterwarnings = [
+    "error:The .TemplateResponse. now requires the .request. argument:DeprecationWarning",
 ]

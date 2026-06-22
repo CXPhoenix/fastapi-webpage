@@ -65,6 +65,10 @@ class WebPage:
         """
         self._template = Jinja2Templates(template_directory)
         self._template.env.globals["url_for"] = urlx_for
+        # Starlette 1.0 將 Jinja2 預設 autoescape 從「一律啟用」改為依副檔名判斷的
+        # select_autoescape()，導致 .jinja2 等非 .html 樣板不再自動轉義（潛在 XSS）。
+        # 為與舊版（Starlette 0.50.x）行為一致並維持安全預設，這裡強制全面啟用 autoescape。
+        self._template.env.autoescape = True
         self._webpage_context = dict()
         self._pre_context = dict()
         self._webpage_context.update(global_context)
@@ -170,7 +174,10 @@ class WebPage:
                         )
                         context.update(self._pre_context)
                         wp_response = self._template.TemplateResponse(
-                            name=template_file, context=context, status_code=status_code
+                            request=request,
+                            name=template_file,
+                            context=context,
+                            status_code=status_code,
                         )
                         return wp_response
                     case _:
@@ -293,7 +300,7 @@ class WebPage:
         context.update(self._pre_context)
         context.update({"webpage": self._webpage_context})
         wp_response = self._template.TemplateResponse(
-            name=template_file, context=context
+            request=request, name=template_file, context=context
         )
         if kargs.get("status_code") and isinstance(kargs.get("status_code"), int):
             wp_response.status_code = kargs.get("status_code")

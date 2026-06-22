@@ -1,0 +1,46 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 舊堆疊：FastAPI 0.128.0 釘住 starlette<0.51，解析到 Starlette 0.50.x
+          - name: starlette-0.50 (old stack)
+            constraints: "fastapi==0.128.0 starlette==0.50.*"
+            expect: "0.50"
+          # 最新：不釘 FastAPI + 強制 starlette>=1.0，解析到 Starlette 1.x
+          - name: starlette-1.x (latest)
+            constraints: "fastapi starlette>=1.0"
+            expect: "1."
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Create venv (Python 3.13)
+        run: uv venv --python 3.13
+
+      - name: Install pinned deps + project
+        run: |
+          uv pip install ${{ matrix.constraints }} \
+            pytest httpx "jinja2>=3.1.6" "python-multipart>=0.0.22" "ujson>=5.11.0"
+          uv pip install --no-deps -e .
+
+      - name: Guard resolved Starlette version
+        run: |
+          uv run --no-sync python -c "import starlette, fastapi; \
+          print('starlette', starlette.__version__, '| fastapi', fastapi.__version__); \
+          assert starlette.__version__.startswith('${{ matrix.expect }}'), starlette.__version__"
+
+      - name: Run tests
+        run: uv run --no-sync python -m pytest

@@ -1,0 +1,6 @@
+<!doctype html>
+<title>{{ webpage.get('site', 'no-site') }}</title>
+<a id="self" href="{{ url_for('index') }}">self</a>
+<p id="msg">{{ msg | default('nomsg') }}</p>
+<p id="foo">{{ foo | default('nofoo') }}</p>
+<p id="css">{{ css_timestamp | default('nocss') }}</p>

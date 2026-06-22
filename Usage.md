@@ -54,6 +54,16 @@ webpage = WebPage(
 )
 ```
 
+> **自動轉義 / Autoescape**：`WebPage` 一律啟用 Jinja2 autoescape（不分副檔名），
+> 以維持跨 Starlette 版本一致的安全行為（Starlette 1.0 已將預設改為僅針對
+> `.html` 等副檔名轉義）。若某個值確實需要輸出原始 HTML，請於 Template 中
+> 使用 `{{ value | safe }}`。
+>
+> `WebPage` always enables Jinja2 autoescape for **all** template extensions to
+> keep behavior consistent across Starlette versions (Starlette 1.0 changed the
+> default to escape only `.html`-like extensions). Use `{{ value | safe }}` in a
+> template when you intentionally need raw HTML.
+
 ---
 
 ### `pre_context` 屬性 / Property
